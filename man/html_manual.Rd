@@ -33,3 +33,7 @@ Math rendering and syntax highlighting are done server-side in R such that no
 JavaScript libraries are needed in the browser, which makes the documents
 portable and fast to load.
 }
+\examples{
+htmlfile <- render_package_manual('compiler', tempdir())
+if(interactive()) utils::browseURL(htmlfile)
+}

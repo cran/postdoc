@@ -15,6 +15,9 @@
 #' this other package. Set to `NULL` to drop cross-package links.
 #' @export
 #' @return path to the generated html document
+#' @examples
+#' htmlfile <- render_package_manual('compiler', tempdir())
+#' if(interactive()) utils::browseURL(htmlfile)
 render_package_manual <- function(package, outdir, link_cb = r_universe_link){
   dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
   get_link <- if(is.function(link_cb)){
@@ -34,7 +37,9 @@ render_package_manual_one <- function(package, outdir, get_link){
   xml2::xml_set_text(xml2::xml_find_first(body, '//h1'), sprintf("Package '%s'", desc$package))
   lapply(xml2::xml_find_all(doc, "//td[starts-with(@class,'description')]"), function(node){
     field <- substring(xml2::xml_attr(node, 'class'), 13)
-    if(length(desc[[field]])){
+    if(field == 'author'){
+      xml2::xml_add_child(node, make_author_node(desc[[field]]))
+    } else if(length(desc[[field]])){
       xml2::xml_set_text(node, desc[[field]])
     }
   })
@@ -43,8 +48,7 @@ render_package_manual_one <- function(package, outdir, get_link){
   nodes <- lapply(ls(manfiles), function(page_id){
     render_one_page(page_id, rd = manfiles[[page_id]], package = package, links = rlinkdb)
   })
-  mannames <- vapply(nodes, attr, character(1), 'name')
-  nodes <- nodes[order(mannames)]
+  nodes <- sort_chapters(nodes)
   pagediv <- xml2::xml_find_first(doc, "//div[@class='manual-pages-content']")
   lapply(nodes, xml2::xml_add_child, .x = pagediv)
   fix_links(doc, package, get_link)
@@ -81,14 +85,23 @@ load_rd_env <- function(package){
   manfiles <- new.env(parent = emptyenv())
   installdir <- system.file(package = package, mustWork = TRUE)
   lazyLoad(file.path(installdir, 'help', package), envir = manfiles)
-  return(manfiles)
+  # cf https://github.com/wch/r-source/blob/b12ffba7584825d6b11bba8b7dbad084a74c1c20/src/library/tools/R/Rd2pdf.R#L109
+  Filter(function(x){
+    is.na(match("internal", get_rd_keywords(x)))
+  }, as.list(manfiles))
+}
+
+sort_chapters <- function(nodes){
+  mannames <- vapply(nodes, attr, character(1), 'name')
+  sortnames <- sub("^(.*-package)$", '___\\1', mannames)
+  nodes[order(sortnames)]
 }
 
 render_one_page <- function(page_id, rd, package, links){
   out <- tempfile(fileext = '.html')
   page_name <- get_rd_name(rd)
   html <- tools::Rd2HTML(rd, package = package, out = out, stages=c("build", "install", "render"),
-                         Links = links, stylesheet="", dynamic = FALSE)
+                         Links = links, Links2 = character(), stylesheet="", dynamic = FALSE)
   doc <- xml2::read_html(html)
   container <- xml2::xml_find_first(doc, "//div[@class = 'container']")
   xml2::xml_set_attr(container, 'id', page_id)
@@ -111,11 +124,12 @@ fix_images <- function(doc, package){
     helpdir <- system.file(package = package, 'help', mustWork = TRUE)
     img <- file.path(helpdir, xml2::xml_attr(x, 'src'))
     if(!file.exists(img)){
-      stop("Document references non-existing image: ", xml2::xml_attr(x, 'src'))
+      warning("Document references non-existing image: ", xml2::xml_attr(x, 'src'))
+    } else {
+      # TODO: maybe better just remove these images, because they seem mostly
+      # intended for pkgdown, and don't show up in the PDF manual either...
+      xml2::xml_set_attr(x, 'src', image_base64(img))
     }
-    # TODO: maybe better just remove these images, because they seem mostly
-    # intended for pkgdown, and don't show up in the PDF manual either...
-    xml2::xml_set_attr(x, 'src', image_base64(img))
   })
 }
 
@@ -152,8 +166,8 @@ render_math <- function(doc){
   lapply(xml2::xml_find_all(doc, "//code[@class = 'reqn']"), function(x){
     input <- trimws(xml2::xml_text(x))
     output <- katex::katex_html(input, preview = FALSE, macros = macros, displayMode = FALSE, throwOnError = FALSE)
-    newnode <- xml2::read_xml(paste0('<code class="reqn">', trimws(output), '</code>'))
-    xml2::xml_replace(x, xml2::xml_root(newnode))
+    newnode <- parse_html_node(paste0('<code class="reqn">', trimws(output), '</code>'))
+    xml2::xml_replace(x, newnode)
   })
 }
 
@@ -172,6 +186,20 @@ package_desc <- function(pkg){
   desc
 }
 
+escape_txt <- function(txt){
+  doc <- xml2::read_xml(charToRaw("<span></span>"))
+  node <- xml2::xml_root(doc)
+  xml2::xml_set_text(node, txt)
+  as.character(xml2::xml_contents(node))
+}
+
+make_author_node <- function(author){
+  snippet <- gsub("\\(&lt;(https://orcid.org/[0-9X-]{19})&gt;\\)",
+                      '<a href="\\1"><img style="height:1em" src="https://cran.r-project.org/web/orcid.svg"></img></a>',
+                      escape_txt(author), perl=TRUE)
+  parse_html_node(sprintf('<span>%s</span>', snippet))
+}
+
 # Try to mimic tools:::.Rd_get_name(rd)
 get_rd_name <- function(rd){
   nametag <- Filter(function(x){identical("\\name", attr(x, 'Rd_tag'))}, rd)
@@ -182,6 +210,12 @@ get_rd_name <- function(rd){
   } else {
     stop("Failed to find \\name in Rd")
   }
+}
+
+get_rd_keywords <- function(rd){
+  # Mimic: tools:::.Rd_get_metadata
+  keywords <- Filter(function(x){identical("\\keyword", attr(x, 'Rd_tag'))}, rd)
+  unique(trimws(vapply(keywords, paste, "", collapse = "\n")))
 }
 
 fix_links <- function(doc, package, get_link){
@@ -245,7 +279,7 @@ find_package_url_internal <- function(package){
   out <- jsonlite::fromJSON(url)
   my_universe <- Sys.getenv("MY_UNIVERSE")
   link <- if(length(out$results)){
-    sprintf("https://%s.r-universe.dev/%s", out$results[['_user']][1], package)
+    sprintf("https://%s.r-universe.dev/manual", out$results[['_user']][1])
   } else if(package %in% universe_list(my_universe)){
     sprintf('%s/%s', my_universe, package)
   } else if(package %in% basepkgs){
@@ -281,3 +315,6 @@ basepkgs <- c("base", "boot", "class", "cluster", "codetools", "compiler",
               "parallel", "rpart", "spatial", "splines", "stats",
               "stats4", "survival", "tcltk", "tools", "utils")
 
+parse_html_node <- function(html){
+  xml2::xml_child(xml2::xml_child(xml2::read_html(html)))
+}

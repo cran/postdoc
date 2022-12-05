@@ -1,7 +1,8 @@
-31555fd03bb7214a4706cc12cbb6b058 *DESCRIPTION
+f9cd73fdd64e692b1abcc24ddb79b709 *DESCRIPTION
 c3a98f95aadeb3c3f93a4a433b0f9980 *LICENSE
 59052f402459594cad86dfd91e9f4aeb *NAMESPACE
-ba5ab8e0819731354469d4483b614498 *R/manual.R
+5d67943070e229bd37528ba4dcdc1bff *NEWS
+825dda716fb0a2f899bd49610fc3cb56 *R/manual.R
 117a4fef06f03b37b5d53f3b55dd4061 *inst/help-template/manual.html
-df49c9eec0a6391b2cae764edbc4bedd *man/html_manual.Rd
+15523e5d4346f3374f5149f457992177 *man/html_manual.Rd
 a8edf2f222d36e508b67d55067473c93 *tests/test.R
