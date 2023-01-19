@@ -18,7 +18,7 @@
 #' @examples
 #' htmlfile <- render_package_manual('compiler', tempdir())
 #' if(interactive()) utils::browseURL(htmlfile)
-render_package_manual <- function(package, outdir, link_cb = r_universe_link){
+render_package_manual <- function(package, outdir = '.', link_cb = r_universe_link){
   dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
   get_link <- if(is.function(link_cb)){
     simple_cache(link_cb)
@@ -37,7 +37,7 @@ render_package_manual_one <- function(package, outdir, get_link){
   xml2::xml_set_text(xml2::xml_find_first(body, '//h1'), sprintf("Package '%s'", desc$package))
   lapply(xml2::xml_find_all(doc, "//td[starts-with(@class,'description')]"), function(node){
     field <- substring(xml2::xml_attr(node, 'class'), 13)
-    if(field == 'author'){
+    if(field == 'author' && nchar(desc$author)){
       xml2::xml_add_child(node, make_author_node(desc[[field]]))
     } else if(length(desc[[field]])){
       xml2::xml_set_text(node, desc[[field]])
@@ -63,14 +63,14 @@ render_package_manual_one <- function(package, outdir, get_link){
 
 #' @rdname html_manual
 #' @export
-render_base_manuals <- function(outdir){
+render_base_manuals <- function(outdir = '.'){
   render_package_manual(basepkgs, outdir = outdir)
 }
 
 #' @export
 #' @rdname html_manual
 r_universe_link <- function(package){
-  pkgurl <- find_package_url_internal(package)
+  pkgurl <- tryCatch(find_package_url_internal(package), error = message)
   if(length(pkgurl)){
     value <- sprintf('%s/%s.html', pkgurl, package)
     message(sprintf("Using link for package '%s' -> %s", package, value))

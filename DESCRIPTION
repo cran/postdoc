@@ -1,7 +1,7 @@
 Package: postdoc
 Type: Package
 Title: Minimal and Uncluttered Package Documentation
-Version: 1.1.0
+Version: 1.2.0
 Authors@R: person("Jeroen", "Ooms", role = c("aut", "cre"), email = "jeroen@berkeley.edu",
     comment = c(ORCID = "0000-0002-4035-0289"))
 Description: Generates simple and beautiful one-page HTML reference manuals 
@@ -14,11 +14,11 @@ URL: https://github.com/ropensci/postdoc,
 BugReports: https://github.com/ropensci/postdoc/issues
 Encoding: UTF-8
 Imports: jsonlite, katex, prismjs, xml2
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
 Language: en-US
 NeedsCompilation: no
-Packaged: 2022-12-05 23:18:35 UTC; jeroen
+Packaged: 2023-01-19 14:15:02 UTC; jeroen
 Author: Jeroen Ooms [aut, cre] (<https://orcid.org/0000-0002-4035-0289>)
 Maintainer: Jeroen Ooms <jeroen@berkeley.edu>
 Repository: CRAN
-Date/Publication: 2022-12-05 23:40:02 UTC
+Date/Publication: 2023-01-19 14:40:02 UTC
