@@ -32,7 +32,7 @@ render_package_manual_one <- function(package, outdir, get_link){
   manfiles <- load_rd_env(package)
   doc <- xml2::read_html(system.file(package = 'postdoc', 'help-template/manual.html'), options = c("RECOVER", "NOERROR"))
   body <- xml2::xml_find_first(doc, '//body')
-  xml2::xml_set_attr(body, 'class', 'macintosh')
+  xml2::xml_set_attr(body, 'class', 'postdoc macintosh')
   xml2::xml_set_text(xml2::xml_find_first(doc, '//title'), sprintf("Package '%s' reference manual", desc$package))
   xml2::xml_set_text(xml2::xml_find_first(body, '//h1'), sprintf("Package '%s'", desc$package))
   lapply(xml2::xml_find_all(doc, "//td[starts-with(@class,'description')]"), function(node){
@@ -106,6 +106,11 @@ render_one_page <- function(page_id, rd, package, links){
                          Links = links, Links2 = character(), stylesheet="", dynamic = FALSE)
   doc <- xml2::read_html(html)
   container <- xml2::xml_find_first(doc, "//div[@class = 'container']")
+  main <- xml2::xml_find_first(doc, "//main")
+  if(xml2::xml_length(main)){
+    xml2::xml_name(main) <- "div"
+    xml2::xml_set_attr(main, 'class', 'page-main')
+  }
   xml2::xml_set_attr(container, 'id', page_id)
   xml2::xml_set_attr(container, 'class', "container manual-page")
   xml2::xml_remove(xml2::xml_find_first(doc, "//div[a[@href = '00Index.html']]")) # Remove footer
@@ -117,6 +122,7 @@ render_one_page <- function(page_id, rd, package, links){
   xml2::xml_set_attr(titlelink, 'href', paste0("#", page_id))
   xml2::xml_set_attr(titlelink, 'class', 'help-page-title')
   xml2::xml_add_child(titlelink, titlenode)
+  xml2::xml_set_attr(xml2::xml_find_first(doc, "//h3[text() = 'Arguments']"), 'class', 'r-arguments-title')
   structure(container, id = page_id, name = page_name, title = page_title)
 }
 
